@@ -38,6 +38,23 @@ applicable agreement for further details.
 )
 (pin
 	(input)
+	(rect -536 -168 -368 -152)
+	(text "INPUT" (rect 125 0 153 10)(font "Arial" (font_size 6)))
+	(text "MISC_A" (rect 5 0 46 12)(font "Arial" ))
+	(pt 168 8)
+	(drawing
+		(line (pt 84 12)(pt 109 12))
+		(line (pt 84 4)(pt 109 4))
+		(line (pt 113 8)(pt 168 8))
+		(line (pt 84 12)(pt 84 4))
+		(line (pt 109 4)(pt 113 8))
+		(line (pt 109 12)(pt 113 8))
+	)
+	(text "VCC" (rect 128 7 148 17)(font "Arial" (font_size 6)))
+	(annotation_block (location)(rect -584 -152 -536 -136))
+)
+(pin
+	(input)
 	(rect -968 232 -792 248)
 	(text "INPUT" (rect 133 0 192 18)(font "Arial" (font_size 6)))
 	(text "MISC_B" (rect 9 0 99 22)(font "Arial" ))
@@ -223,23 +240,6 @@ applicable agreement for further details.
 	)
 	(annotation_block (location)(rect -528 344 -424 376))
 )
-(pin
-	(output)
-	(rect 584 -128 760 -112)
-	(text "OUTPUT" (rect 1 0 82 18)(font "Arial" (font_size 6)))
-	(text "MISC_D" (rect 90 0 182 22)(font "Arial" ))
-	(pt 0 8)
-	(drawing
-		(line (pt 0 8)(pt 52 8))
-		(line (pt 52 4)(pt 78 4))
-		(line (pt 52 12)(pt 78 12))
-		(line (pt 52 12)(pt 52 4))
-		(line (pt 78 4)(pt 82 8))
-		(line (pt 82 8)(pt 78 12))
-		(line (pt 78 12)(pt 82 8))
-	)
-	(annotation_block (location)(rect 760 -112 864 -80))
-)
 (symbol
 	(rect -96 376 80 456)
 	(text "LatchBuffer" (rect 5 0 123 22)(font "Arial" ))
@@ -296,23 +296,6 @@ applicable agreement for further details.
 	)
 	(drawing
 		(rectangle (rect 16 16 160 64))
-	)
-)
-(symbol
-	(rect -672 66 -640 98)
-	(text "GND" (rect 8 16 52 34)(font "Arial" (font_size 6)))
-	(text "inst2" (rect 3 21 50 43)(font "Arial" )(invisible))
-	(port
-		(pt 16 0)
-		(output)
-		(text "1" (rect 18 0 30 22)(font "Courier New" (bold))(invisible))
-		(text "1" (rect 18 0 30 22)(font "Courier New" (bold))(invisible))
-		(line (pt 16 8)(pt 16 0))
-	)
-	(drawing
-		(line (pt 8 8)(pt 16 16))
-		(line (pt 16 16)(pt 24 8))
-		(line (pt 8 8)(pt 24 8))
 	)
 )
 (symbol
@@ -1015,35 +998,12 @@ applicable agreement for further details.
 	(pt -120 -176)
 )
 (connector
-	(text "RST" (rect -671 33 -649 82)(font "Arial" )(vertical))
-	(pt -656 50)
-	(pt -656 66)
-)
-(connector
-	(pt -632 50)
-	(pt -656 50)
-)
-(connector
 	(pt -752 240)
 	(pt -752 336)
 )
 (connector
 	(pt -752 336)
 	(pt -704 336)
-)
-(connector
-	(text "RST" (rect -456 -176 -407 -154)(font "Arial" ))
-	(pt -368 -160)
-	(pt -464 -160)
-)
-(connector
-	(pt 504 -120)
-	(pt 504 -128)
-)
-(connector
-	(text "COUNT[6]" (rect 512 -136 621 -114)(font "Arial" ))
-	(pt 584 -120)
-	(pt 504 -120)
 )
 (connector
 	(text "CLK_8" (rect -248 -16 -174 6)(font "Arial" ))
