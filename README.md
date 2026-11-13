@@ -84,7 +84,7 @@ Verification and trimming:
 # delay, and both should be 25 us apart.
 python dual_directional_speaker.py --board-a-port COM6 --board-b-port COM7 --trim 127
 
-# Sweep the secondary trim while watching the broadside level / 59 deg null
+# Sweep the secondary trim while watching the broadside level / grating null
 python dual_directional_speaker.py --board-a-port COM6 --board-b-port COM7 --trim-sweep 0:255:8 --trim-dwell 2
 ```
 
