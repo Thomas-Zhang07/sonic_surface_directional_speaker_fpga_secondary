@@ -49,6 +49,11 @@ applicable agreement for further details.
 		"8"
 		""
 		(type "PARAMETER_SIGNED_DEC")	)
+	(parameter
+		"SYNC_LOAD"
+		"71"
+		""
+		(type "PARAMETER_SIGNED_DEC")	)
 	(drawing
 		(rectangle (rect 16 16 232 64)(line_width 1))
 	)
