@@ -50,8 +50,9 @@ $sources = @(
     (Join-Path $sim  'tb_chain.vhd'),
     (Join-Path $sim  'tb_glue.vhd'),
     (Join-Path $sim  'tb_pulseexpander.vhd'),
-    (Join-Path $sim  'tb_dist_primary.vhd'),
-    (Join-Path $sim  'tb_phase_primary.vhd')
+    (Join-Path $sim  'tb_dist_secondary.vhd'),
+    (Join-Path $sim  'tb_phase_secondary.vhd'),
+    (Join-Path $sim  'tb_sync.vhd')
 )
 
 Write-Host 'Compiling...'
@@ -75,14 +76,15 @@ function Run-TB {
 }
 
 Write-Host ''
-Run-TB -Top 'tb_dist_primary'  -RunTime '5 us'   -Label 'tb_dist_primary'
-Run-TB -Top 'tb_phase_primary' -RunTime '2 ms'   -Label 'tb_phase_primary'
+Run-TB -Top 'tb_dist_secondary'  -RunTime '5 us'   -Label 'tb_dist_secondary'
+Run-TB -Top 'tb_phase_secondary' -RunTime '2 ms'   -Label 'tb_phase_secondary'
 Run-TB -Top 'tb_distribute'    -RunTime '100 us' -Label 'tb_distribute'
 Run-TB -Top 'tb_phaseline'     -RunTime '20 us'  -Label 'tb_phaseline'
 Run-TB -Top 'tb_allchannels'   -RunTime '2 ms'   -Label 'tb_allchannels'
 Run-TB -Top 'tb_music_player'  -RunTime '700 ms' -Label 'tb_music_player'
 Run-TB -Top 'tb_glue'          -RunTime '2 ms'   -Label 'tb_glue'
 Run-TB -Top 'tb_pulseexpander' -RunTime '20 us'  -Label 'tb_pulseexpander'
+Run-TB -Top 'tb_sync'          -RunTime '40 us'  -Label 'tb_sync'
 
 foreach ($demo in @('demo1', 'demo2', 'demo3')) {
     Copy-Item (Join-Path $work "frame_$demo.txt") (Join-Path $work 'frame_input.txt') -Force

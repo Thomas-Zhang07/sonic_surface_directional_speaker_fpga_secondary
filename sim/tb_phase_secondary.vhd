@@ -3,8 +3,8 @@ use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
 
 -- Checks: 16-phase 40 kHz carrier on DATA(0), and OFF (0x10) silences a group.
-entity tb_phase_primary is end entity;
-architecture sim of tb_phase_primary is
+entity tb_phase_secondary is end entity;
+architecture sim of tb_phase_secondary is
     constant CK8 : time := 195313 ps;   -- 5.12 MHz
     signal clk8 : std_logic := '0';
     signal clk  : std_logic;
@@ -77,7 +77,7 @@ begin
         measuring <= '1';
         wait for 300 us;
         assert rises = 0 report "FAIL: DATA0 not quiet after OFF, rises=" & integer'image(rises) severity failure;
-        report "TEST PASSED: tb_phase_primary (period=" & time'image(period) & ")" severity note;
+        report "TEST PASSED: tb_phase_secondary (period=" & time'image(period) & ")" severity note;
         done <= true;
         wait;
     end process;

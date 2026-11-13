@@ -11,7 +11,7 @@ use work.phase_correction_pkg.all;
 --   * 0x10 is stored as "off" and never corrected
 --   * 0xFD swaps and restarts the address counter
 --   * 0x96 / 0x97 toggle the shift clocks
---   * 0xC0 enables the primary board, 0xC1 disables it
+--   * 0xC0 disables the secondary board, 0xC1 enables it
 --   * 0xC8..0xCB select modes 00..11
 --   * no channel is written after the 256th payload byte
 entity tb_distribute is
@@ -124,19 +124,19 @@ begin
         send(q_in, byte_in, 16#97#);
         check(debug_onShiftClocks = '1', "0x97 turns shift clocks on");
 
-        -- Board select (primary variant) --------------------------------
+        -- Board select (secondary variant) ------------------------------
         send(q_in, byte_in, 16#C0#);
-        check(debug_reset = '1', "0xC0 enables the primary board");
+        check(debug_reset = '0', "0xC0 disables the secondary board");
+        send(q_in, byte_in, 16#FE#);
+        send(q_in, byte_in, 3);
+        check(set_out = '0', "disabled board ignores payload");
+        check(to_integer(unsigned(address)) = 0, "disabled board keeps address");
+        send(q_in, byte_in, 16#C1#);
+        check(debug_reset = '1', "0xC1 enables the secondary board");
         send(q_in, byte_in, 16#FE#);
         send(q_in, byte_in, 3);
         check(set_out = '1', "enabled board accepts payload");
         check(to_integer(unsigned(address)) = 0, "enabled board writes at 0");
-        send(q_in, byte_in, 16#C1#);
-        check(debug_reset = '0', "0xC1 disables the primary board");
-        send(q_in, byte_in, 16#FE#);
-        send(q_in, byte_in, 4);
-        check(set_out = '0', "disabled board ignores payload");
-        check(to_integer(unsigned(address)) = 0, "disabled board keeps address");
 
         -- Mode commands -------------------------------------------------
         send(q_in, byte_in, 16#C8#); check(mode = "00", "0xC8 selects mode 00");
@@ -145,7 +145,7 @@ begin
         send(q_in, byte_in, 16#CB#); check(mode = "11", "0xCB selects mode 11");
 
         -- 256-byte limit ------------------------------------------------
-        send(q_in, byte_in, 16#C0#);   -- re-enable the primary board
+        send(q_in, byte_in, 16#C1#);   -- re-enable the secondary board
         send(q_in, byte_in, 16#FE#);
         for i in 0 to 255 loop
             send(q_in, byte_in, 0);
