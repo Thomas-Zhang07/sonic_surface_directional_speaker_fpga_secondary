@@ -21,7 +21,22 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 FPGA_DIR = HERE.parent
-DEMO_DIR = FPGA_DIR.parent / "demo"
+
+
+def _find_demo_dir() -> Path:
+    """Locate the host demo package.
+
+    The FPGA project used to live next to ``demo``; it now sits under
+    ``E:\\LUIS\\IPP\\fpga\\<role>`` with ``demo`` one level further up.
+    Support both layouts so the suite runs from either tree.
+    """
+    for candidate in (FPGA_DIR.parent / "demo", FPGA_DIR.parent.parent / "demo"):
+        if (candidate / "acoustics.py").is_file():
+            return candidate
+    return FPGA_DIR.parent / "demo"
+
+
+DEMO_DIR = _find_demo_dir()
 OUT_DIR = HERE / "work"
 
 
