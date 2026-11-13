@@ -171,8 +171,8 @@ Serial Flash Loader, then the JIC.
 
 ## Verification performed
 
-- Quartus fit: successful, **5,624 / 6,272 LE (90 %)**, 4,710 combinational
-  (75 %), 4,819 registers (77 %), 44 pins.
+- Quartus fit: successful, **5,679 / 6,272 LE (91 %)**, 4,736 combinational
+  (76 %), 4,845 registers (77 %), 44 pins.
 - Full RTL suite (`sim/run_sim.ps1`): **ALL TESTS PASSED**.
 - `tb_sync`: with the default trim the secondary counter matches the
   primary on every checked clock; trim 0 gives +13 clocks and trim 255
