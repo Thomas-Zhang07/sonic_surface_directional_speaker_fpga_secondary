@@ -165,5 +165,8 @@ Serial Flash Loader, then the JIC.
 - `LED[2]` = board enable, `LED[1]` = frame swap (toggles once per `0xFD`),
   `LED[3]` = shift-clock enable.  `MISC_D` is not driven by this build.
 - `fpga/PLAN.md` in the parent directory tracks the two-board bring-up;
-  the fine 50 MHz phase trim and the `MISC_C`/`MISC_B` frame strobe are not
-  implemented yet — start with parallel host writes to both boards.
+  the fine 50 MHz phase trim and a frame-staging strobe are not implemented
+  yet — start with parallel host writes to both boards.  A future strobe
+  cannot use `MISC_B`: on both boards that pin is the UART RX line
+  (`MISC_B` → `RSSFilter_1` → `UARTReader.i_RX_Serial`).  Use `MISC_F`
+  (PIN_115) instead.
