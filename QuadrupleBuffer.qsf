@@ -66,7 +66,7 @@ set_global_assignment -name OUTPUT_IO_TIMING_FAR_END_VMEAS "HALF SIGNAL SWING" -
 set_location_assignment PIN_65 -to MISC_A
 set_location_assignment PIN_60 -to MISC_B
 set_location_assignment PIN_67 -to MISC_C
-set_location_assignment PIN_120 -to MISC_D
+# PIN_120 (MISC_D) is deliberately unused: the primary owns the sync line.
 set_location_assignment PIN_124 -to MISC_E
 set_location_assignment PIN_115 -to MISC_F
 set_location_assignment PIN_28 -to SHIFT_CLOCK_1
