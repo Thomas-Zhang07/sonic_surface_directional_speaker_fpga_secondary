@@ -162,6 +162,12 @@ Serial Flash Loader, then the JIC.
   edge-triggered reload handle it.
 - The host must send `0xC1` to this board before a frame if a board-select
   byte is used; `0xC0` disables it.
+- The correction table is the **secondary raw** table permuted to wire order
+  with `EMITTERS_ORDER`, mirroring the primary build.  The raw-vs-permuted
+  orientation has not been re-verified for this board: run the same
+  scope/acoustic A/B used on the primary (`table_test.py`, `wire_probe.py`)
+  before trusting the absolute phases.  The table compensates transducer
+  polarity only; it does not change the inter-board phase.
 - `LED[2]` = board enable, `LED[1]` = frame swap (toggles once per `0xFD`),
   `LED[3]` = shift-clock enable.  `MISC_D` is not driven by this build.
 - `fpga/PLAN.md` in the parent directory tracks the two-board bring-up;
