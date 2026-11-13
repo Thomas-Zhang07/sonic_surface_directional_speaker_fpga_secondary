@@ -42,6 +42,7 @@ $sources = @(
     (Join-Path $fpga 'src\Mux8.vhd'),
     (Join-Path $fpga 'src\music_player.vhd'),
     (Join-Path $fpga 'src\AllChannels.vhd'),
+    (Join-Path $fpga 'src\SyncTrim.vhd'),
     (Join-Path $fpga 'src\Distribute.vhd'),
     (Join-Path $sim  'tb_distribute.vhd'),
     (Join-Path $sim  'tb_phaseline.vhd'),
@@ -84,7 +85,7 @@ Run-TB -Top 'tb_allchannels'   -RunTime '2 ms'   -Label 'tb_allchannels'
 Run-TB -Top 'tb_music_player'  -RunTime '700 ms' -Label 'tb_music_player'
 Run-TB -Top 'tb_glue'          -RunTime '2 ms'   -Label 'tb_glue'
 Run-TB -Top 'tb_pulseexpander' -RunTime '20 us'  -Label 'tb_pulseexpander'
-Run-TB -Top 'tb_sync'          -RunTime '40 us'  -Label 'tb_sync'
+Run-TB -Top 'tb_sync'          -RunTime '500 us' -Label 'tb_sync'
 
 foreach ($demo in @('demo1', 'demo2', 'demo3')) {
     Copy-Item (Join-Path $work "frame_$demo.txt") (Join-Path $work 'frame_input.txt') -Force

@@ -14,6 +14,9 @@ architecture sim of tb_dist_secondary is
     signal q_in, data_out, address : std_logic_vector(7 downto 0) := (others=>'0');
     signal mode : std_logic_vector(1 downto 0);
     signal done : boolean := false;
+    signal clk_fast, sync_in, trim_bit, trim_strobe, sync_out : std_logic := '0';
+    signal trim_received : std_logic_vector(7 downto 0) := (others => '0');
+    signal strobe_count : integer := 0;
 
     procedure ck(c: boolean; m: string) is begin
         assert c report "FAIL: " & m severity failure;
@@ -30,12 +33,26 @@ architecture sim of tb_dist_secondary is
     end procedure;
 begin
     clk <= not clk after T/2 when not done else '0';
+    clk_fast <= not clk_fast after 10 ns when not done else '0';
+
+    -- Reconstruct the serial trim stream for checking.
+    trim_rx : process (clk)
+    begin
+        if rising_edge(clk) then
+            if (trim_strobe = '1') then
+                trim_received <= trim_received(6 downto 0) & trim_bit;
+                strobe_count <= strobe_count + 1;
+            end if;
+        end if;
+    end process;
 
     dut: entity work.Distribute port map(
         CLK=>clk, byte_in=>byte_in, q_in=>q_in, swap_out=>swap_out,
         set_out=>set_out, multiplex_out=>multiplex_out, data_out=>data_out,
         address=>address, debug_swap=>debug_swap, debug_reset=>debug_reset,
-        debug_onShiftClocks=>debug_onShiftClocks, mode=>mode);
+        debug_onShiftClocks=>debug_onShiftClocks, mode=>mode,
+        trim_bit=>trim_bit, trim_strobe=>trim_strobe,
+        clk_fast=>clk_fast, sync_in=>sync_in, sync_out=>sync_out);
 
     stim: process begin
         wait for 10*T;
@@ -79,6 +96,35 @@ begin
         send(q_in, byte_in, 16#FD#);
         ck(swap_out='1', "0xFD asserts swap");
         ck(to_integer(unsigned(address))=4, "0xFD keeps last address output");
+        -- Trim command: 0xE0 0x5A 0x20 between frames.
+        send(q_in, byte_in, 16#E0#);
+        send(q_in, byte_in, 16#5A#);
+        send(q_in, byte_in, 16#20#);
+        wait for 30*T;
+        report "trim_received = " & integer'image(to_integer(unsigned(trim_received))) &
+               " strobes = " & integer'image(strobe_count) severity note;
+        ck(trim_received = std_logic_vector(to_unsigned(16#20#, 8)),
+           "trim command produces the serial stream 0x20");
+
+        -- 0xE0 inside a frame must be a payload byte, not a command.
+        send(q_in, byte_in, 16#FE#);
+        send(q_in, byte_in, 16#E0#);
+        ck(set_out='1', "0xE0 inside a frame is payload");
+        ck(to_integer(unsigned(address))=0, "frame payload address 0");
+        ck(to_integer(unsigned(data_out(7 downto 4)))=16#E#,
+           "0xE0 amplitude nibble preserved");
+        send(q_in, byte_in, 16#FD#);
+        wait for 30*T;
+        ck(trim_received = std_logic_vector(to_unsigned(16#20#, 8)),
+           "payload 0xE0 does not change the trim");
+
+        -- A bad second byte must abort the command, not change the trim.
+        send(q_in, byte_in, 16#E0#);
+        send(q_in, byte_in, 16#00#);
+        wait for 30*T;
+        ck(trim_received = std_logic_vector(to_unsigned(16#20#, 8)),
+           "bad trim prefix leaves the trim unchanged");
+
         report "TEST PASSED: tb_dist_secondary" severity note;
         done <= true;
         wait;

@@ -17,7 +17,19 @@ entity Distribute is
 		  debug_swap : out STD_LOGIC := '0';
 		  debug_reset : out STD_LOGIC := '0';
 		  debug_onShiftClocks : out STD_LOGIC := '1';
-		  mode : out STD_LOGIC_VECTOR(1 downto 0) := "00" -- 2位模式输出，默认模式00
+		  mode : out STD_LOGIC_VECTOR(1 downto 0) := "00"; -- 2位模式输出，默认模式00
+		  -- Fine inter-board phase trim, in 50 MHz steps (20 ns = 0.288 deg
+		  -- at 40 kHz).  127 is the centred default; the host can override
+		  -- it with the 0xE0 0x5A <value> command between frames.  The
+		  -- value is sent serially (MSB first, one bit per trim_strobe) so
+		  -- the schematic needs no 8-bit bus between the two blocks.
+		  trim_bit : out STD_LOGIC := '0';
+		  trim_strobe : out STD_LOGIC := '0';
+		  -- Sync path (SyncTrim is instantiated here so the trim value
+		  -- never has to cross an 8-bit bus in the schematic).
+		  clk_fast : in STD_LOGIC := '0';     -- 50 MHz
+		  sync_in : in STD_LOGIC := '0';      -- MISC_A
+		  sync_out : out STD_LOGIC := '0'     -- to Counter sync_reset
 	 );
 end Distribute;
 
@@ -48,16 +60,46 @@ type T_PHASE_CORRECTION is array (0 to 255) of integer range 0 to 255;
 		-- 接收到202：模式10
 		-- 接收到203：模式11
 		signal s_mode : STD_LOGIC_VECTOR(1 downto 0) := "00";
+
+		-- Fine trim command state: 0 = idle, 1 = saw 0xE0, 2 = saw 0xE0 0x5A.
+		signal s_trim_state : integer range 0 to 2 := 0;
+		signal s_trim : STD_LOGIC_VECTOR(7 downto 0) := "01111111";
+		signal s_trim_shift : STD_LOGIC_VECTOR(7 downto 0) := (others => '0');
+		signal s_trim_count : integer range 0 to 8 := 0;
+		signal s_trim_bit : STD_LOGIC := '0';
+		signal s_trim_strobe : STD_LOGIC := '0';
+		-- 1 between 0xFE and 0xFD.  The trim command is only recognised
+		-- outside a frame so a payload byte 0xE0 can never be mistaken for it.
+		signal s_inFrame : STD_LOGIC := '0';
 begin
     Distribute: process (clk) begin
         if (rising_edge(clk)) then
 				if (byte_in = '1') then --a byte of data is ready
 					
-					if (q_in = "11111110") then --254 is start phases
+					if (s_trim_state = 1) then
+						-- second byte of the trim command
+						if (q_in = "01011010") then --0x5A
+							s_trim_state <= 2;
+						else
+							s_trim_state <= 0;
+						end if;
+					elsif (s_trim_state = 2) then
+						-- third byte: load the value and serialise it
+						s_trim <= q_in;
+						s_trim_shift <= q_in;
+						s_trim_count <= 8;
+						s_trim_state <= 0;
+					elsif (q_in = "11100000") and (s_inFrame = '0') then --224
+						-- Trim command prefix, only between frames.
+						s_trim_state <= 1;
+					elsif (q_in = "11111110") then --254 is start phases
+						s_trim_state <= 0;
+						s_inFrame <= '1';
 						s_ByteCounter <= 0;
 						s_swap_out <= '0';
 						s_set_out <= '0';
 					elsif (q_in = "11111101") then --253 is swap
+						s_inFrame <= '0';
 						s_debug_swap <= not s_debug_swap;
 						s_set_out <= '0';
 						s_swap_out <= '1';
@@ -130,8 +172,17 @@ begin
 							s_set_out <= '0';
 					end if;
 				end if;
-				
-				
+
+				-- Serialise the latched trim value, MSB first.
+				if (s_trim_count > 0) then
+					s_trim_bit <= s_trim_shift(7);
+					s_trim_shift <= s_trim_shift(6 downto 0) & '0';
+					s_trim_strobe <= '1';
+					s_trim_count <= s_trim_count - 1;
+				else
+					s_trim_strobe <= '0';
+				end if;
+
 		  end if;
  end process;
  debug_swap <= s_debug_swap;
@@ -143,5 +194,19 @@ begin
  swap_out <= s_swap_out;
  set_out <= s_set_out;
  mode <= s_mode;
+	 trim_bit <= s_trim_bit;
+	 trim_strobe <= s_trim_strobe;
  
+	 -- Carrier-sync detector and fine trim.  It shares s_trim_bit /
+	 -- s_trim_strobe with the serialiser above.
+	 sync_trim : entity work.SyncTrim
+		  port map (
+				clk_fast => clk_fast,
+				clk_slow => clk,
+				sync_in => sync_in,
+				trim_bit => s_trim_bit,
+				trim_strobe => s_trim_strobe,
+				sync_out => sync_out
+		  );
+
 end Behavioral;

@@ -2,96 +2,162 @@ library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
 
--- Carrier-sync test for the secondary board.
+-- Carrier-sync test for the secondary board with the new architecture:
 --
--- The primary drives MISC_D with COUNT[6] (40 kHz).  On the secondary that
--- signal enters MISC_A, passes through RSSFilter_1 and resets the carrier
--- counter.  For a coherent combined array the two counters must be equal
--- (mod 128, the carrier period) after every sync edge.
+--   primary Counter --carrier_sync--> MISC_A --> SyncTrim --> Counter sync
 --
--- The test models the primary with a free-running Counter and streams
--- COUNT(6) through the same RSSFilter_1 the schematic uses.  It then checks
--- that the filtered edge makes the secondary counter land on the primary
--- value instead of merely resetting to zero (which would leave a constant
--- carrier phase error).  tb_sync also proves that the filter latency is
--- included: a Counter with SYNC_LOAD => 0 shows the error.
+-- The primary emits a one-clock pulse at COUNT = 0 (mod 128).  SyncTrim
+-- synchronizes it, delays it by the trim value (50 MHz steps) and produces a
+-- one-cycle pulse in the 5.12 MHz domain.  The secondary Counter loads
+-- SYNC_LOAD on that pulse.
+--
+-- Checks:
+--   * with the default trim (127) the two counters stay in step;
+--   * sending trim = 0 (less delay) leaves the secondary about 13 clocks
+--     ahead of the primary;
+--   * sending trim = 255 (more delay) leaves it about 13 clocks behind;
+--   * the difference between those two settings is 255 * 20 ns, i.e. about
+--     26 clocks of the 5.12 MHz clock.
 entity tb_sync is
 end entity;
 
 architecture sim of tb_sync is
 
-    constant CLK_PERIOD : time := 20 ns;      -- 5.12 MHz
-    constant CARRIER    : integer := 128;     -- counts per 40 kHz period
+    constant FAST_PERIOD : time := 20 ns;          -- 50 MHz
+    constant SLOW_PERIOD : time := 195.3125 ns;    -- 5.12 MHz
+    constant CARRIER     : integer := 128;
 
-    signal clk : std_logic := '0';
+    signal clk_fast : std_logic := '0';
+    signal clk_slow : std_logic := '0';
     signal finished : boolean := false;
 
-    signal prim_count : std_logic_vector(7 downto 0);
-    signal sync_raw   : std_logic;
-    signal sync_f     : std_logic;
+    signal prim_count : std_logic_vector(7 downto 0) := (others => '0');
+    signal sync_pulse : std_logic;
+    signal sync_out   : std_logic;
     signal sec_count  : std_logic_vector(7 downto 0);
 
-    -- Second secondary counter with the legacy zero reset, used as the
-    -- negative control.
-    signal sec_zero   : std_logic_vector(7 downto 0);
+    signal trim_bit    : std_logic := '0';
+    signal trim_strobe : std_logic := '0';
 
     function phase_of(value : std_logic_vector(7 downto 0)) return integer is
     begin
         return to_integer(unsigned(value)) mod CARRIER;
     end function;
 
+    -- Signed phase difference, in counts, wrapped to -64..63.
+    function phase_delta(a, b : std_logic_vector(7 downto 0)) return integer is
+        variable d : integer;
+    begin
+        d := (phase_of(a) - phase_of(b)) mod CARRIER;
+        if d > CARRIER / 2 then
+            d := d - CARRIER;
+        end if;
+        return d;
+    end function;
+
+    procedure check(cond : boolean; msg : string) is
+    begin
+        assert cond report "FAIL: " & msg severity failure;
+    end procedure;
+
 begin
 
-    clk <= not clk after CLK_PERIOD / 2 when not finished else '0';
+    clk_fast <= not clk_fast after FAST_PERIOD / 2 when not finished else '0';
+    clk_slow <= not clk_slow after SLOW_PERIOD / 2 when not finished else '0';
 
-    -- Primary: free-running counter; bit 6 is the 40 kHz sync output.
-    primary : entity work.Counter
-        generic map (COUNTER_BITS => 8, SYNC_LOAD => 0)
-        port map (clk_in => clk, sync_reset => '0', clk_out => prim_count);
+    -- Primary carrier counter and its phase-0 pulse.
+    process (clk_slow)
+    begin
+        if rising_edge(clk_slow) then
+            prim_count <= std_logic_vector(unsigned(prim_count) + 1);
+        end if;
+    end process;
+    sync_pulse <= '1' when prim_count(6 downto 0) = "0000000" else '0';
 
-    sync_raw <= prim_count(6);
+    dut : entity work.SyncTrim
+        port map (
+            clk_fast => clk_fast,
+            clk_slow => clk_slow,
+            sync_in => sync_pulse,
+            trim_bit => trim_bit,
+            trim_strobe => trim_strobe,
+            sync_out => sync_out
+        );
 
-    filter : entity work.RSSFilter_1
-        generic map (TAPS => 8)
-        port map (clk => clk, bit_in => sync_raw, bit_out => sync_f);
-
-    -- Secondary: same RSSFilter output, default SYNC_LOAD from the entity.
     secondary : entity work.Counter
-        generic map (COUNTER_BITS => 8)
-        port map (clk_in => clk, sync_reset => sync_f, clk_out => sec_count);
-
-    zero_load : entity work.Counter
-        generic map (COUNTER_BITS => 8, SYNC_LOAD => 0)
-        port map (clk_in => clk, sync_reset => sync_f, clk_out => sec_zero);
+        generic map (COUNTER_BITS => 8)   -- default SYNC_LOAD = 16
+        port map (clk_in => clk_slow, sync_reset => sync_out, clk_out => sec_count);
 
     stimulus : process
+        procedure send_trim(constant value : integer) is
+            variable v : std_logic_vector(7 downto 0);
+        begin
+            v := std_logic_vector(to_unsigned(value, 8));
+            for i in 7 downto 0 loop
+                trim_bit <= v(i);
+                wait until falling_edge(clk_slow);
+                trim_strobe <= '1';
+                wait until falling_edge(clk_slow);
+                trim_strobe <= '0';
+            end loop;
+            trim_bit <= '0';
+        end procedure;
+
+        procedure measure(variable delta : out integer) is
+        begin
+            wait until rising_edge(clk_slow);
+            delta := phase_delta(sec_count, prim_count);
+        end procedure;
+
         variable mismatches : integer;
-        variable zero_errors : integer;
+        variable delta_default : integer;
+        variable delta_zero : integer;
+        variable delta_max : integer;
     begin
-        -- Let the majority filter settle over several sync periods.
-        wait for 3 * CARRIER * CLK_PERIOD;
+        -- Let the synchronizers settle over several carrier periods.
+        wait for 5 * CARRIER * SLOW_PERIOD;
+
+        measure(delta_default);
+        report "default delta = " & integer'image(delta_default) severity note;
 
         mismatches := 0;
-        zero_errors := 0;
-        for i in 0 to 8 * CARRIER - 1 loop
-            wait until rising_edge(clk);
-            if phase_of(sec_count) /= phase_of(prim_count) then
+        for i in 0 to 4 * CARRIER - 1 loop
+            wait until rising_edge(clk_slow);
+            if phase_delta(sec_count, prim_count) /= 0 then
                 mismatches := mismatches + 1;
             end if;
-            if phase_of(sec_zero) = phase_of(prim_count) then
-                zero_errors := zero_errors + 1;
-            end if;
         end loop;
+        check(mismatches = 0,
+              "default trim is not aligned (" & integer'image(mismatches) &
+              " mismatched clocks)");
 
-        assert mismatches = 0
-            report "FAIL: secondary counter is not in step with the primary (" &
-                   integer'image(mismatches) & " mismatched clocks)"
-            severity failure;
+        measure(delta_default);
+        check(delta_default = 0, "default trim phase offset is not zero");
 
-        assert zero_errors = 0
-            report "FAIL: SYNC_LOAD => 0 accidentally aligned; the test no " &
-                   "longer proves the filter latency is compensated"
-            severity failure;
+        -- trim = 0: 127 * 20 ns earlier than the default.
+        send_trim(0);
+        wait for 5 * CARRIER * SLOW_PERIOD;
+        measure(delta_zero);
+        check(delta_zero >= 11 and delta_zero <= 15,
+              "trim 0 offset " & integer'image(delta_zero) &
+              " is not about +13 clocks");
+
+        -- trim = 255: 128 * 20 ns later than the default.
+        send_trim(255);
+        wait for 5 * CARRIER * SLOW_PERIOD;
+        measure(delta_max);
+        check(delta_max <= -11 and delta_max >= -15,
+              "trim 255 offset " & integer'image(delta_max) &
+              " is not about -13 clocks");
+
+        -- The full trim range must span about 255 * 20 ns = 26 clocks.
+        check(delta_zero - delta_max >= 24 and delta_zero - delta_max <= 28,
+              "trim range " & integer'image(delta_zero - delta_max) &
+              " is not about 26 clocks");
+
+        report "trim offsets: default=" & integer'image(delta_default) &
+               " zero=" & integer'image(delta_zero) &
+               " max=" & integer'image(delta_max) severity note;
 
         finished <= true;
         report "TEST PASSED: tb_sync" severity note;

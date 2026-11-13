@@ -124,6 +124,7 @@ set_global_assignment -name VHDL_FILE src/PhaseLine.vhd
 set_global_assignment -name VHDL_FILE src/SwapField.vhd
 set_global_assignment -name QIP_FILE src/Masterclock.qip
 set_global_assignment -name VHDL_FILE src/Counter.vhd
+set_global_assignment -name VHDL_FILE src/SyncTrim.vhd
 set_global_assignment -name VHDL_FILE src/Mux8.vhd
 set_global_assignment -name VHDL_FILE src/AllChannels.vhd
 set_global_assignment -name VHDL_FILE src/PulseExpander.vhd
